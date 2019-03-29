@@ -1,0 +1,14 @@
+#!/usr/bin/env pwsh
+Write-Host "Running pre-push hook"
+
+$pesterInstalled = Get-Command -Name Invoke-Pester -ErrorAction SilentlyContinue
+if ($null -eq $pesterInstalled) {
+  Write-Warning 'Pester is not installed but is required to run QA. Fix by installing Pester (Install-Module Pester)'
+  exit 1
+}
+
+$result = Invoke-Pester -Script ./Tests/QA.tests.ps1 -PassThru
+if ( $result.FailedCount -gt 0 ) {
+  Write-Warning 'QA errors were found'
+  exit 1
+}

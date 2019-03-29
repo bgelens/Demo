@@ -42,4 +42,10 @@ Azure ARM templates work well when written consistently. To ensure a baseline, I
 
 [![Build Status](https://dev.azure.com/bgelens/DemoProject/_apis/build/status/bgelens.Demo?branchName=master)](https://dev.azure.com/bgelens/DemoProject/_build/latest?definitionId=3&branchName=master)
 
+The tests can be run locally by running ```Invoke-Pester``` in PowerShell. It is also possible to setup a pre-commit and / or pre-push hook to have the test run automatically on the client side. I've included a sample pre-push hook which can be installed by running:
+
+```powershell
+New-Item -Path ./.git/hooks -Name pre-push -ItemType HardLink -Value ./hooks/pre-push -Force
+```
+
 Time taken, 1 hour.
