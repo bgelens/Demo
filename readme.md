@@ -38,4 +38,8 @@ Time taken, 30 mins.
 
 ### Add initial QA tests
 
-Azure ARM templates work well when written consistently. To ensure a baseline, I'm adding a bunch of Pester tests to help ensure the consistency.
+Azure ARM templates work well when written consistently. To ensure a baseline, I'm adding a bunch of Pester tests to help ensure the consistency. I've setup CI with Azure DevOps which will run these tests every time something is committed to master (normally this would happen at PR time, but since this a demo project, I've not protected master).
+
+[![Build Status](https://dev.azure.com/bgelens/DemoProject/_apis/build/status/bgelens.Demo?branchName=master)](https://dev.azure.com/bgelens/DemoProject/_build/latest?definitionId=3&branchName=master)
+
+Time taken, 1 hour.
