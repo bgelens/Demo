@@ -3,7 +3,10 @@
   "contentVersion": "1.0.0.0",
   "parameters": {
     "storageAccountName": {
-      "type": "string"
+      "type": "string",
+      "metadata": {
+        "description": "Name for the Storage Account (has to be globally unique)"
+      }
     }
   },
   "variables": {},

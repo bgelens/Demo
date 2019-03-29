@@ -1,0 +1,16 @@
+pool:
+  vmImage: ubuntu-16.04
+
+steps:
+  - pwsh: Install-Module -Name Pester -Force -SkipPublisherCheck -AllowClobber -Scope CurrentUser
+    displayName: Install prerequisite modules
+
+  - pwsh: Invoke-Pester -EnableExit -OutputFormat NunitXml -OutputFile ./test-results.xml
+    displayName: Run Pester
+
+  - task: PublishTestResults@2
+    displayName: Publish Pester Test results
+    inputs:
+      testResultsFormat: NUnit
+      testResultsFiles: "**/test-results.xml"
+    condition: always()

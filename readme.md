@@ -33,3 +33,9 @@ Created [simple template](/Templates/datalake-storage.json)
 New-AzResourceGroup -Name demo -Location 'West Europe' -Tag @{CostCenter='blackhole'}
 New-AzResourceGroupDeployment -ResourceGroupName demo -TemplateFile .\Templates\datalake-storage.json -storageAccountName bgdemostordatalake
 ```
+
+Time taken, 30 mins.
+
+### Add initial QA tests
+
+Azure ARM templates work well when written consistently. To ensure a baseline, I'm adding a bunch of Pester tests to help ensure the consistency.
