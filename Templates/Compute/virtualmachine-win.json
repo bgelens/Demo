@@ -1,0 +1,151 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "vmSize": {
+      "type": "string",
+      "metadata": {
+        "description": "The vm Size to use"
+      }
+    },
+    "vmName": {
+      "type": "string",
+      "metadata": {
+        "description": "The vm Name to use"
+      }
+    },
+    "osSku": {
+      "type": "string",
+      "metadata": {
+        "description": "Windows Server sku"
+      }
+    },
+    "adminUsername": {
+      "type": "string",
+      "metadata": {
+        "description": "Administrator username"
+      }
+    },
+    "adminPassword": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Administrator password"
+      }
+    },
+    "subnetResourceId": {
+      "type": "string",
+      "metadata": {
+        "description": "Name for the Storage Account (has to be globally unique)"
+      }
+    }
+  },
+  "variables": {
+    "nicName": "[concat(parameters('vmName'),'-nic')]",
+    "pipName": "[concat(parameters('vmName'),'-pip')]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Network/publicIPAddresses",
+      "name": "[variables('pipName')]",
+      "location": "[resourceGroup().location]",
+      "tags": "[resourceGroup().tags]",
+      "apiVersion": "2018-12-01",
+      "properties": {
+        "publicIPAllocationMethod": "Dynamic"
+      }
+    },
+    {
+      "apiVersion": "2018-12-01",
+      "type": "Microsoft.Network/networkInterfaces",
+      "name": "[variables('nicName')]",
+      "location": "[resourceGroup().location]",
+      "tags": "[resourceGroup().tags]",
+      "dependsOn": [
+        "[concat('Microsoft.Network/publicIPAddresses/', variables('pipName'))]"
+      ],
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "subnet": {
+                "id": "[parameters('subnetResourceId')]"
+              },
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('pipName'))]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "2018-10-01",
+      "type": "Microsoft.Compute/virtualMachines",
+      "name": "[parameters('vmName')]",
+      "location": "[resourceGroup().location]",
+      "dependsOn": [
+        "[concat('Microsoft.Network/networkInterfaces/', variables('nicName'))]"
+      ],
+      "tags": "[resourceGroup().tags]",
+      "identity": {
+        "type": "SystemAssigned"
+      },
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[parameters('vmSize')]"
+        },
+        "osProfile": {
+          "computerName": "[parameters('vmName')]",
+          "adminUsername": "[parameters('adminUsername')]",
+          "adminPassword": "[parameters('adminPassword')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "MicrosoftWindowsServer",
+            "offer": "WindowsServer",
+            "sku": "[parameters('osSku')]",
+            "version": "latest"
+          },
+          "osDisk": {
+            "createOption": "FromImage"
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('nicName'))]"
+            }
+          ]
+        }
+      },
+      "resources": [
+        {
+          "type": "extensions",
+          "name": "ManagedIdentityExtensionForWindows",
+          "apiVersion": "2018-10-01",
+          "location": "[resourceGroup().location]",
+          "dependsOn": [
+            "[concat('Microsoft.Compute/virtualMachines/', parameters('vmName'))]"
+          ],
+          "properties": {
+            "publisher": "Microsoft.ManagedIdentity",
+            "type": "ManagedIdentityExtensionForWindows",
+            "typeHandlerVersion": "1.0",
+            "autoUpgradeMinorVersion": true,
+            "settings": {
+              "port": 50342
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "outputs": {
+    "managedIdentityPrincipalId": {
+      "type": "string",
+      "value": "[reference(concat('Microsoft.Compute/virtualMachines/', parameters('vmName')), '2018-10-01', 'Full').identity.principalId]"
+    }
+  }
+}

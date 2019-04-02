@@ -1,0 +1,91 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "namePrefix": {
+      "type": "string",
+      "metadata": {
+        "description": "Prefix to be used to derive naming of resources on."
+      }
+    },
+    "subnets": {
+      "type": "array",
+      "metadata": {
+        "description": "Array of the subnets each containing a name and addressPrefix property"
+      }
+    },
+    "vNetAddressPrefixes": {
+      "type": "array",
+      "metadata": {
+        "description": "Array of IP address prefixes for the vNet address space."
+      }
+    },
+    "vNetDnsServers": {
+      "type": "array",
+      "metadata": {
+        "description": "Array of DNS Servers to be used by the vNet. When none are specified, Azure DNS is used."
+      },
+      "defaultValue": []
+    }
+  },
+  "variables": {
+    "vNetName": "[concat(parameters('namePrefix'), '-vnet')]",
+    "copy": [
+      {
+        "name": "subnetArray",
+        "count": "[length(parameters('subnets'))]",
+        "input": {
+          "name": "[parameters('subnets')[copyIndex('subnetArray')].subnetName]",
+          "properties": {
+            "addressPrefix": "[parameters('subnets')[copyIndex('subnetArray')].addressPrefix]",
+            "networkSecurityGroup": {
+              "id": "[resourceId('Microsoft.Network/networkSecurityGroups', concat(parameters('namePrefix'), '-', parameters('subnets')[copyIndex('subnetArray')].subnetName, '-nsg'))]"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "resources": [
+    {
+      "apiVersion": "2018-12-01",
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "name": "[concat(parameters('namePrefix'), '-', parameters('subnets')[copyIndex('nsg')].subnetName, '-nsg')]",
+      "location": "[resourceGroup().location]",
+      "tags": "[resourceGroup().tags]",
+      "properties": {
+        "securityrules": "[if(contains(parameters('subnets')[copyIndex('nsg')], 'securityrules'), parameters('subnets')[copyIndex('nsg')].securityrules, json('[]'))]"
+      },
+      "copy": {
+        "name": "nsg",
+        "count": "[length(parameters('subnets'))]",
+        "mode": "Parallel"
+      }
+    },
+    {
+      "name": "[variables('vNetName')]",
+      "type": "Microsoft.Network/virtualNetworks",
+      "apiVersion": "2018-12-01",
+      "location": "[resourceGroup().location]",
+      "tags": "[resourceGroup().tags]",
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": "[parameters('vNetAddressPrefixes')]"
+        },
+        "dhcpOptions": {
+          "dnsServers": "[parameters('vNetDnsServers')]"
+        },
+        "subnets": "[variables('subnetArray')]"
+      },
+      "dependsOn": [
+        "nsg"
+      ]
+    }
+  ],
+  "outputs": {
+    "vNetResourceId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Network/virtualNetworks', variables('vNetName'))]"
+    }
+  }
+}
