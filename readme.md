@@ -19,6 +19,8 @@ This is my demo repository to work on the following scenario:
 >2. Flexibility
 >3. Robustness
 
+Assumption: Since the scenario mentions a Load balancer and virtual network, I assume we are **required** to run the web app in a VM / VMSS instead of Azure Web App (considering the requirements for a web facing application with no reliance on other network attached resources, I normally would prefer to deploy the application to an Azure Web App / Functions App over VMs but this would mean no load balance nor vnet would be required).
+
 ## Notes
 
 ### An Azure Datalake Gen 2 storage account
@@ -31,7 +33,7 @@ Created [simple template](/Templates/datalake-storage.json)
 
 ```powershell
 New-AzResourceGroup -Name demo -Location 'West Europe' -Tag @{CostCenter='blackhole'}
-New-AzResourceGroupDeployment -ResourceGroupName demo -TemplateFile .\Templates\datalake-storage.json -storageAccountName bgdemostordatalake
+New-AzResourceGroupDeployment -ResourceGroupName demo -TemplateFile .\Templates\Storage\datalake-storage.json -storageAccountName bgdemostordatalake
 ```
 
 Time taken, 30 mins.
@@ -49,3 +51,49 @@ New-Item -Path ./.git/hooks -Name pre-push -ItemType HardLink -Value ./hooks/pre
 ```
 
 Time taken, 1 hour.
+
+### A key vault with a secret
+
+Look at schema and decide to create 3 templates for optimal composability:
+
+* [vault](https://docs.microsoft.com/en-us/azure/templates/microsoft.keyvault/2018-02-14/vaults)
+* [accesspolicies](https://docs.microsoft.com/en-us/azure/templates/microsoft.keyvault/2018-02-14/vaults/accesspolicies)
+* [secrets](https://docs.microsoft.com/en-us/azure/templates/microsoft.keyvault/2018-02-14/vaults/secrets)
+
+```powershell
+$kvDeploy = New-AzResourceGroupDeployment -ResourceGroupName demo -TemplateFile .\Templates\KeyVault\keyvault.json -keyvaultName bgdemokv -enabledForDeployment $true -enabledForTemplateDeployment $true
+
+New-AzResourceGroupDeployment -ResourceGroupName demo -TemplateFile .\Templates\KeyVault\keyvault-secret.json -keyvaultResourceId $kvDeploy.Outputs['keyvaultResourceId'].value -secretName bgsecret -secretValue (ConvertTo-SecureString 'Super$3cret!' -AsPlainText -Force)
+```
+
+Time taken, 30 mins.
+
+### A virtual network
+
+```powershell
+$vnetDeploy = New-AzResourceGroupDeployment -ResourceGroupName demo -TemplateFile .\Templates\Network\virtualnetwork.json -namePrefix bg -vNetAddressPrefixes '192.168.1.0/24' -subnets @(
+  @{
+    subnetName = 'default'
+    addressPrefix = '192.168.1.0/24'
+  }
+)
+```
+
+### VM
+
+```powershell
+$subnetResourceId = $vnetDeploy.Outputs['vNetResourceId'].value + '/subnets/default'
+
+$vmDeploy = New-AzResourceGroupDeployment -ResourceGroupName demo -TemplateFile .\Templates\Compute\virtualmachine-win.json -vmName bgvm01 -vmSize Standard_DS1_v2 -osSku '2019-Datacenter' -subnetResourceId $subnetResourceId -adminUsername ben -adminPassword (ConvertTo-SecureString 'SecureP@$word!01' -AsPlainText -Force)
+```
+
+### keyvault policy
+
+```powershell
+New-AzResourceGroupDeployment -ResourceGroupName demo -TemplateFile .\Templates\KeyVault\keyvault-policy.json -keyVaultName 'bgdemokv' -objectId $vmDeploy.Outputs['managedIdentityPrincipalId'].value -permissions @{
+  secrets = @(
+    'get',
+    'list'
+  )
+}
+```
